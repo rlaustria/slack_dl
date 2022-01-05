@@ -2,7 +2,7 @@ const qs = require('qs');
 const axios = require('axios');
 const fs = require('fs');
 const { mkdir, rm, access } = require('fs/promises');
-const { eachLimit } = require('async');
+const { each, eachLimit } = require('async');
 const { writeArrayTofile } = require('./helpers');
 
 const DOWNLOAD_DIR = './download';
@@ -102,7 +102,7 @@ const getChannelMessages = function (channel, cursor = '') {
 				// write message
 				let messages = data.messages;
 
-				await eachLimit(messages, RATE, async function (message) {
+				await eachLimit(messages, RATE / 2, async function (message) {
 					if (message.thread_ts == message.ts) {
 						return await getThreadMessages(id, channelName, message.thread_ts, '');
 					}
@@ -144,7 +144,6 @@ const getThreadMessages = async function (channel, channelName, ts, cursor = '')
 					console.log(data);
 					return;
 				} else {
-					console.log(data);
 					const nextCursor = data.response_metadata ? data.response_metadata.next_cursor : '';
 
 					// write message
@@ -153,7 +152,8 @@ const getThreadMessages = async function (channel, channelName, ts, cursor = '')
 						getThreadMessages(channel, channelName, ts, nextCursor);
 					});
 				}
-			});
+			})
+			.catch((err) => console.log(err));
 	}
 };
 
@@ -190,7 +190,7 @@ const getUsers = function (cursor = '') {
 
 async function run() {
 	await createDir();
-	//await getUsers();
+	await getUsers();
 	await getChannelList('');
 
 	console.log('Downloading......');
@@ -198,8 +198,6 @@ async function run() {
 	await eachLimit(channelList, RATE, async function (channel) {
 		return await getChannelMessages(channel);
 	});
-
-	//await getThreadMessages('C01V76C6DK2', 'contrdevs', '1622098601.004900', '');
 }
 
 run();
