@@ -54,7 +54,10 @@ const getChannelList = function (cursor = '') {
 				let channels = data.channels.map((c) => {
 					fs.access(`${MESSAGE_DIR}/${c.name}.json`, fs.F_OK, (err) => {
 						if (err) {
-							fs.writeFileSync(`${MESSAGE_DIR}/${c.name}.json`, '[\n', (err) => {
+							let dir = `${MESSAGE_DIR}/${c.name}`;
+							let file = `${dir}/${c.name}.json`;
+							fs.mkdirSync(dir);
+							fs.writeFileSync(file, '[\n', (err) => {
 								if (err) console.log(`Error creating file ${c.name}.json`);
 							});
 						} else {
@@ -78,7 +81,7 @@ const getChannelList = function (cursor = '') {
 const getChannelMessages = function (channel, cursor = '') {
 	// query messages for channel and write to file
 	let [id, channelName] = channel;
-	let file = `${MESSAGE_DIR}/${channelName}.json`;
+	let file = `${MESSAGE_DIR}/${channelName}/${channelName}.json`;
 	return axios
 		.post(`https://slack.com/api/conversations.history?cursor=${cursor}`, qs.stringify({ channel: id }))
 		.then((res) => res.data)
