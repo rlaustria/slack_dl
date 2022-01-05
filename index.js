@@ -1,7 +1,7 @@
 const qs = require('qs');
 const axios = require('axios');
 const fs = require('fs');
-const { mkdir, rm } = require('fs/promises');
+const { mkdir, rm, access } = require('fs/promises');
 const { eachLimit } = require('async');
 const { writeArrayTofile } = require('./helpers');
 
@@ -85,7 +85,7 @@ const getChannelMessages = function (channel, cursor = '') {
 	return axios
 		.post(`https://slack.com/api/conversations.history?cursor=${cursor}`, qs.stringify({ channel: id }))
 		.then((res) => res.data)
-		.then((data) => {
+		.then(async (data) => {
 			if (!data.ok) {
 				console.log(`Error querying messages for ${channelName}`);
 				console.log(data);
@@ -102,6 +102,12 @@ const getChannelMessages = function (channel, cursor = '') {
 				// write message
 				let messages = data.messages;
 
+				await eachLimit(messages, RATE, async function (message) {
+					if (message.thread_ts == message.ts) {
+						return await getThreadMessages(id, channelName, message.thread_ts, '');
+					}
+				});
+
 				return writeArrayTofile(
 					file,
 					messages,
@@ -116,6 +122,39 @@ const getChannelMessages = function (channel, cursor = '') {
 				);
 			}
 		});
+};
+
+const getThreadMessages = async function (channel, channelName, ts, cursor = '') {
+	// query user list and write data to file
+	let ts_name = ts.replace('.', '_');
+	let file = `${MESSAGE_DIR}/${channelName}/thread_${ts_name}.json`;
+	try {
+		return await access(file, fs.F_OK);
+	} catch (error) {
+		fs.writeFileSync(file, '[\n', (err) => {
+			if (err) console.log(`Error creating file ${file}`);
+		});
+
+		return axios
+			.get(`https://slack.com/api/conversations.replies?channel=${channel}&ts=${ts}&cursor=${cursor}`)
+			.then((res) => res.data)
+			.then((data) => {
+				if (!data.ok) {
+					console.log('Error querying user list');
+					console.log(data);
+					return;
+				} else {
+					console.log(data);
+					const nextCursor = data.response_metadata ? data.response_metadata.next_cursor : '';
+
+					// write message
+					let messages = data.messages;
+					writeArrayTofile(file, messages, nextCursor, () => {
+						getThreadMessages(channel, channelName, ts, nextCursor);
+					});
+				}
+			});
+	}
 };
 
 const getUsers = function (cursor = '') {
@@ -151,7 +190,7 @@ const getUsers = function (cursor = '') {
 
 async function run() {
 	await createDir();
-	await getUsers();
+	//await getUsers();
 	await getChannelList('');
 
 	console.log('Downloading......');
@@ -159,6 +198,8 @@ async function run() {
 	await eachLimit(channelList, RATE, async function (channel) {
 		return await getChannelMessages(channel);
 	});
+
+	//await getThreadMessages('C01V76C6DK2', 'contrdevs', '1622098601.004900', '');
 }
 
 run();
