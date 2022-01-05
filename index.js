@@ -8,7 +8,7 @@ const { writeArrayTofile } = require('./helpers');
 const DOWNLOAD_DIR = './download';
 const MESSAGE_DIR = './download/messages';
 const USERS_DIR = './download/users';
-const RATE = 10;
+const RATE = 100;
 
 let done = 0;
 let total = 0;
@@ -17,7 +17,7 @@ let total = 0;
 // Credentials
 //--------------------
 
-const token = 'xoxp-160730254213-1825863363414-2911752150468-de68388fb7b2cdf187a678bf15660ca8';
+const token = '';
 axios.defaults.headers['Authorization'] = `Bearer ${token}`;
 
 let channelList = [];
