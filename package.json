@@ -1,0 +1,16 @@
+{
+  "name": "slack_dl",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "async": "^3.2.2",
+    "axios": "^0.24.0",
+    "qs": "^6.10.2"
+  }
+}
