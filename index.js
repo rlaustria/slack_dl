@@ -8,6 +8,7 @@ const { writeArrayTofile } = require('./helpers');
 const DOWNLOAD_DIR = './download';
 const MESSAGE_DIR = './download/messages';
 const USERS_DIR = './download/users';
+const RATE = 10;
 
 let done = 0;
 let total = 0;
@@ -37,37 +38,6 @@ async function createDir() {
 		await mkdir(MESSAGE_DIR);
 	}
 }
-
-const getUsers = function (cursor = '') {
-	// query user list and write data to file
-	let file = `${USERS_DIR}/users.json`;
-	fs.access(file, fs.F_OK, (err) => {
-		if (err) {
-			fs.writeFileSync(`${USERS_DIR}/users.json`, '[\n', (err) => {
-				if (err) console.log(`Error creating file users.json`);
-			});
-
-			return axios
-				.get(`https://slack.com/api/users.list?cursor=${cursor}`)
-				.then((res) => res.data)
-				.then((data) => {
-					if (!data.ok) {
-						console.log('Error querying user list');
-						console.log(data);
-						return;
-					} else {
-						const nextCursor = data.response_metadata ? data.response_metadata.next_cursor : '';
-
-						// write message
-						let users = data.members;
-						writeArrayTofile(file, users, nextCursor, () => {
-							getUsers(nextCursor);
-						});
-					}
-				});
-		}
-	});
-};
 
 const getChannelList = function (cursor = '') {
 	// build channel list and create files
@@ -129,7 +99,7 @@ const getChannelMessages = function (channel, cursor = '') {
 				// write message
 				let messages = data.messages;
 
-				writeArrayTofile(
+				return writeArrayTofile(
 					file,
 					messages,
 					nextCursor,
@@ -145,6 +115,37 @@ const getChannelMessages = function (channel, cursor = '') {
 		});
 };
 
+const getUsers = function (cursor = '') {
+	// query user list and write data to file
+	let file = `${USERS_DIR}/users.json`;
+	fs.access(file, fs.F_OK, (err) => {
+		if (err) {
+			fs.writeFileSync(`${USERS_DIR}/users.json`, '[\n', (err) => {
+				if (err) console.log(`Error creating file users.json`);
+			});
+
+			return axios
+				.get(`https://slack.com/api/users.list?cursor=${cursor}`)
+				.then((res) => res.data)
+				.then((data) => {
+					if (!data.ok) {
+						console.log('Error querying user list');
+						console.log(data);
+						return;
+					} else {
+						const nextCursor = data.response_metadata ? data.response_metadata.next_cursor : '';
+
+						// write message
+						let users = data.members;
+						writeArrayTofile(file, users, nextCursor, () => {
+							getUsers(nextCursor);
+						});
+					}
+				});
+		}
+	});
+};
+
 async function run() {
 	await createDir();
 	await getUsers();
@@ -152,8 +153,8 @@ async function run() {
 
 	console.log('Downloading......');
 
-	await eachLimit(channelList, 100, function (channel) {
-		return getChannelMessages(channel);
+	await eachLimit(channelList, RATE, async function (channel) {
+		return await getChannelMessages(channel);
 	});
 }
 

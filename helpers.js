@@ -7,7 +7,7 @@ const stripBrackets = (array, cursor) => {
 	return array;
 };
 
-const writeArrayTofile = (file, data, cursor, next, cb = () => {}) => {
+const writeArrayTofile = async (file, data, cursor, next, cb = () => {}) => {
 	data = stripBrackets(data, cursor);
 
 	fs.appendFileSync(file, data, (err) => {
