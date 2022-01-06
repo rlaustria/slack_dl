@@ -3,7 +3,7 @@
 For the token :
 1. Go to your app at api.slack.com
 2. Select 'Install app' on the left side
-3. If 'User OAuth Token' does not exist, run 'Install app'
+3. If 'User OAuth Token' does not exist, run 'Install to workspace'
 
 To run:
 
