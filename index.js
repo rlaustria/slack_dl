@@ -94,7 +94,7 @@ const getChannelMessages = function (channel, cursor = '') {
 			// write message
 			let messages = data.messages;
 
-			await eachLimit(messages, RATE / 2, async function (message) {
+			await eachLimit(messages, RATE, async function (message) {
 				if (message.thread_ts == message.ts) {
 					return await getThreadMessages(id, channelName, message.thread_ts, '');
 				}
@@ -118,7 +118,7 @@ const getChannelMessages = function (channel, cursor = '') {
 			let data = err.response.data;
 			if (!data.ok) {
 				if (data.error && data.error === 'ratelimited') {
-					await delay(parseInt(err.response.headers['retry-after']) * 10000);
+					await delay(parseInt(err.response.headers['retry-after']) * 1000);
 					return await getChannelMessages(channel, cursor);
 				} else {
 					console.log(`Error querying messages for ${channelName}`);
