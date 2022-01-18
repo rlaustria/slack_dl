@@ -22,6 +22,9 @@ axios.defaults.headers['Authorization'] = `Bearer ${token}`;
 
 let channelList = [];
 
+// sleep function
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function createDir() {
 	// delete and recreate folders
 	try {
@@ -86,40 +89,48 @@ const getChannelMessages = function (channel, cursor = '') {
 		.post(`https://slack.com/api/conversations.history?cursor=${cursor}`, qs.stringify({ channel: id }))
 		.then((res) => res.data)
 		.then(async (data) => {
+			const nextCursor = data.response_metadata ? data.response_metadata.next_cursor : '';
+
+			// write message
+			let messages = data.messages;
+
+			await eachLimit(messages, RATE / 2, async function (message) {
+				if (message.thread_ts == message.ts) {
+					return await getThreadMessages(id, channelName, message.thread_ts, '');
+				}
+			});
+
+			return writeArrayTofile(
+				file,
+				messages,
+				nextCursor,
+				() => {
+					getChannelMessages(channel, nextCursor);
+				},
+				() => {
+					done++;
+					console.log(`Downloading : ${done}/${total} done`);
+				}
+			);
+		})
+		.catch(async (err) => {
+			if (!err.response) console.log(err);
+			let data = err.response.data;
 			if (!data.ok) {
-				console.log(`Error querying messages for ${channelName}`);
-				console.log(data);
-				fs.appendFileSync(file, JSON.stringify(data), (err) => {
-					if (err) {
-						console.log(`Error writing to file ${channelName}.json`);
-						console.log(err);
-					}
-				});
-				return;
-			} else {
-				const nextCursor = data.response_metadata ? data.response_metadata.next_cursor : '';
-
-				// write message
-				let messages = data.messages;
-
-				await eachLimit(messages, RATE / 2, async function (message) {
-					if (message.thread_ts == message.ts) {
-						return await getThreadMessages(id, channelName, message.thread_ts, '');
-					}
-				});
-
-				return writeArrayTofile(
-					file,
-					messages,
-					nextCursor,
-					() => {
-						getChannelMessages(channel, nextCursor);
-					},
-					() => {
-						done++;
-						console.log(`Downloading : ${done}/${total} done`);
-					}
-				);
+				if (data.error && data.error === 'ratelimited') {
+					await delay(parseInt(err.response.headers['retry-after']) * 10000);
+					return await getChannelMessages(channel, cursor);
+				} else {
+					console.log(`Error querying messages for ${channelName}`);
+					console.log(data);
+					fs.appendFileSync(file, JSON.stringify(data), (err) => {
+						if (err) {
+							console.log(`Error writing to file ${channelName}.json`);
+							console.log(err);
+						}
+					});
+					return;
+				}
 			}
 		});
 };
@@ -191,7 +202,7 @@ const getUsers = function (cursor = '') {
 async function run() {
 	await createDir();
 	await getUsers();
-	await getChannelList('');
+	await getChannelList();
 
 	console.log('Downloading......');
 
